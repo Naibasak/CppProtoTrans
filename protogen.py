@@ -11,7 +11,7 @@ def read_file_del_ex(file_name):
     read_text = re.sub('//[^\r\n]*|/\*.*?\*/', "", read_text)
     # read_text = re.sub('/\*.*?\*/', "", read_text)
     read_text = re.sub(';', "", read_text)
-    read_object.close( )
+    read_object.close()
     return read_text
 
 def safe2Int(string):
@@ -20,9 +20,7 @@ def safe2Int(string):
     except Exception, e:
         return None
 
-# 宏定义 table
 def get_define_table(text):
-    # 宏定义表
     luastr = ""
     its = re.finditer('#define([^//\n]*)', text, re.M)
     dic = {}
@@ -57,7 +55,10 @@ def main(cppfile, savefile):
         if customStruct:
             line = '%4s{ k = "%s", t = "%s", d = %s, l = {%s} },\n' %(' ', varName, varType, customStruct, size)
         else:
-            line = '%4s{ k = "%s", t = "%s", l = {%s} },\n' %(' ', varName, varType, size)
+            if varType == "string":
+                line = '%4s{ k = "%s", t = "%s", s = %s },\n' %(' ', varName, varType, size)
+            else:
+                line = '%4s{ k = "%s", t = "%s", l = {%s} },\n' %(' ', varName, varType, size)
         return line
 
     for match in struct_it:
@@ -75,10 +76,14 @@ def main(cppfile, savefile):
             if key.lower() in TYPE_MAPS:
                 key = key.lower()
             else:
-                if key.lower() == "long":
+                oldKey = key
+                key = key.lower()
+                if key == "long":
                     key = "int"
+                elif key == "tchar":
+                    key = "string"
                 else:
-                    enhance = "cmd." + key
+                    enhance = "cmd." + oldKey
                     key = "table"
 
             valueType = re.sub('\[(.*?)\]', '', value)
@@ -129,9 +134,11 @@ def main(cppfile, savefile):
     fd.close()
 
 if __name__ == '__main__':
-    cppfile = "CMD_PlazaServer.h"
+    cppfile = "proto.h"
     if len(sys.argv)>=2:
         cppfile = sys.argv[1]
 
     if os.path.isfile(cppfile):
         main(cppfile, cppfile + ".lua")
+    else:
+        print(cppfile  + " not found!")
