@@ -1,16 +1,35 @@
 # -*- coding: utf-8-*-
 import os, sys, string, re
 
-TYPE_MAPS = ("byte", "int", "word", "dword", "score", "string", "bool", "double", "float", "short")
+# TYPE_MAPS = ("byte", "int", "word", "dword", "score", "string", "bool", "double", "float", "short")
+TYPE_MAPS = {
+"byte":"byte",
+"int":"int",
+"word":"word",
+"dword":"dword",
+"score":"score",
+"longlong":"score",
+"int64":"score",
+"tchar":"string",
+"bool":"bool",
+"double":"double",
+"float":"float",
+"short":"short",
+"long":"int",
+}
 
 #remove comments
 def read_file_del_ex(file_name):
     exfile = os.path.join(sys.path[0],file_name)
     read_object = open(exfile,"r")
     read_text = read_object.read()
-    read_text = re.sub('//[^\r\n]*|/\*.*?\*/', "", read_text)
-    # read_text = re.sub('/\*.*?\*/', "", read_text)
+
+    # read_text = re.sub('//[^\r\n]*|/\*.*?\*/', "", read_text)
+    read_text = re.sub(r'//[^\r\n]*', "", read_text)
+    m = re.compile(r'/\*.*?\*/', re.S)
+    read_text = re.sub(m, "", read_text)
     read_text = re.sub(';', "", read_text)
+
     read_object.close()
     return read_text
 
@@ -34,19 +53,21 @@ def get_define_table(text):
     return dic,luastr
 
 def checkGrammer(ctx):
-    resutl = re.findall(r"(struct +.*?{.*?,.*?})", ctx, re.S)
-    if len(resutl)>0:
-        print("Not support grammer yet!!======================")
-        for m in resutl:
-            print (m)
-    return len(resutl) <= 0
+    result = re.findall(r"(struct +.*?{.*?,.*?})", ctx, re.S)
+    if len(result)>0:
+        print("Not support unfold grammer yet!!======================")
+        return True
 
+    result = re.findall(r'typedef.*?struct.*?{.*?}.*', ctx, re.S)
+    if len(result) > 0:
+        print("Not support typedef grammer yet!!======================")
+        return True
 
 def main(cppfile, savefile):
     ctx = read_file_del_ex(cppfile)
     defines,luastr = get_define_table(ctx)
 
-    if not checkGrammer(ctx):
+    if checkGrammer(ctx) != None:
         return
 
     struct_it = re.finditer('struct +.*?{.*?}', ctx, re.S)
@@ -65,7 +86,6 @@ def main(cppfile, savefile):
         array = match.group().split()
 
         luastr = luastr +  "cmd.%s = {\n" % array[1]
-
         key_value_pairs = len(array) - 4
         for i in range(1,key_value_pairs/2+1):
             offset = (i-1)*2
@@ -73,25 +93,18 @@ def main(cppfile, savefile):
             value = array[3+offset+1]
 
             enhance = None
-            if key.lower() in TYPE_MAPS:
-                key = key.lower()
+            if TYPE_MAPS.has_key(key.lower()):
+                key = TYPE_MAPS[key.lower()]
             else:
-                oldKey = key
-                key = key.lower()
-                if key == "long":
-                    key = "int"
-                elif key == "tchar":
-                    key = "string"
-                else:
-                    enhance = "cmd." + oldKey
-                    key = "table"
+                enhance = "cmd." + key
+                key = "table"
 
             valueType = re.sub('\[(.*?)\]', '', value)
             params = re.findall('\[(.*?)\]', value)
             dimension = len(params)
 
             if dimension > 0:
-                assert dimension <= 2, "Error need an too larger dimension!"
+                assert dimension <= 2, "Error need a too larger dimension!"
                 line = ''
                 if dimension == 1:
                     size = params[0]
@@ -123,8 +136,12 @@ def main(cppfile, savefile):
 
                 luastr = luastr + line
             else:
-                line = '%4s{ k = "%s", t = "%s" },\n' %(' ', valueType, key)
-                luastr = luastr + line
+                if not enhance:
+                    line = '%4s{ k = "%s", t = "%s" },\n' %(' ', valueType, key)
+                    luastr = luastr + line
+                else:
+                    line = '%4s{ k = "%s", t = "%s", d = %s },\n' %(' ', valueType, key, enhance)
+                    luastr = luastr + line
 
         luastr = luastr + "}\n\n"
 
@@ -134,7 +151,7 @@ def main(cppfile, savefile):
     fd.close()
 
 if __name__ == '__main__':
-    cppfile = "proto.h"
+    cppfile = "test.txt"
     if len(sys.argv)>=2:
         cppfile = sys.argv[1]
 
