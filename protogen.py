@@ -117,9 +117,9 @@ def main(cppfile, savefile):
                 else:
                     rep_count = params[0]
                     rep_str = params[1]
-                    if safe2Int(rep_count):
-                        result = ','.join([rep_str[:len(rep_str)]] * rep_count)
-
+                    rep_count_value = safe2Int(rep_count)
+                    if rep_count_value:
+                        result = ','.join([rep_str[:len(rep_str)]] * rep_count_value)
                         line = packArray(enhance, valueType, key, result)
 
                     elif defines.has_key(rep_count):
